@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Default implementation of {@link LocalComponentMetadata}. This component is lazy in that it
@@ -159,14 +160,11 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
     public synchronized Optional<List<? extends VariantGraphResolveMetadata>> getVariantsForGraphTraversal() {
         if (consumableConfigurations == null) {
             ImmutableList.Builder<VariantGraphResolveMetadata> builder = new ImmutableList.Builder<>();
-            for (String name : configurationFactory.getConfigurationNames()) {
-                if (configurationFactory.isConsumable(name)) {
-                    LocalConfigurationMetadata configuration = getConfiguration(name);
-                    if (!configuration.getAttributes().isEmpty()) {
-                        builder.add(configuration);
-                    }
+            configurationFactory.visitConfigurations(candidate -> {
+                if (candidate.isConsumable() && candidate.hasAttributes()) {
+                    builder.add(getConfiguration(candidate.getName()));
                 }
-            }
+            });
 
             ImmutableList<VariantGraphResolveMetadata> variants = builder.build();
             consumableConfigurations = !variants.isEmpty() ? Optional.of(variants) : Optional.empty();
@@ -178,7 +176,10 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
     public LocalConfigurationMetadata getConfiguration(final String name) {
         LocalConfigurationMetadata md = allConfigurations.get(name);
         if (md == null) {
-            md = configurationFactory.getConfiguration(name, this, artifactTransformer);
+            md = configurationFactory.getConfiguration(name, this);
+            if (artifactTransformer != null) {
+                md = md.copy(artifactTransformer);
+            }
             allConfigurations.put(name, md);
         }
         return md;
@@ -200,7 +201,9 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
     public void reevaluate() {
         allConfigurations.clear();
         configurationFactory.invalidate();
-        consumableConfigurations = null;
+        synchronized (this) {
+            consumableConfigurations = null;
+        }
     }
 
     @Override
@@ -213,16 +216,12 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
      * the component metadata to source configuration data from multiple sources, both lazy and eager.
      */
     public interface ConfigurationMetadataFactory {
+        void visitConfigurations(Consumer<Candidate> visitor);
+
         /**
          * Get the names of all configurations which this factory can produce.
          */
         Set<String> getConfigurationNames();
-
-        /**
-         * Determines if a configuration produced by this factory is consumable or not, without
-         * realizing the underlying configuration metadata.
-         */
-        boolean isConsumable(String name);
 
         /**
          * Invalidates any caching used for producing configuration metadata.
@@ -237,9 +236,16 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
         @Nullable
         LocalConfigurationMetadata getConfiguration(
             String name,
-            DefaultLocalComponentMetadata parent,
-            @Nullable Transformer<LocalComponentArtifactMetadata, LocalComponentArtifactMetadata> artifactTransformer
+            DefaultLocalComponentMetadata parent
         );
+
+        interface Candidate {
+            String getName();
+
+            boolean isConsumable();
+
+            boolean hasAttributes();
+        }
     }
 
     /**
@@ -259,8 +265,25 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
         }
 
         @Override
-        public boolean isConsumable(String name) {
-            return metadata.get(name).isCanBeConsumed();
+        public void visitConfigurations(Consumer<Candidate> visitor) {
+            for (LocalConfigurationMetadata configuration : metadata.values()) {
+                visitor.accept(new Candidate() {
+                    @Override
+                    public String getName() {
+                        return configuration.getName();
+                    }
+
+                    @Override
+                    public boolean isConsumable() {
+                        return configuration.isCanBeConsumed();
+                    }
+
+                    @Override
+                    public boolean hasAttributes() {
+                        return !configuration.getAttributes().isEmpty();
+                    }
+                });
+            }
         }
 
         @Override
@@ -269,14 +292,9 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
         @Override
         public LocalConfigurationMetadata getConfiguration(
             String name,
-            DefaultLocalComponentMetadata parent,
-            @Nullable Transformer<LocalComponentArtifactMetadata, LocalComponentArtifactMetadata> artifactTransformer
+            DefaultLocalComponentMetadata parent
         ) {
-            if (artifactTransformer == null) {
-                return metadata.get(name);
-            } else {
-                return metadata.get(name).copy(artifactTransformer);
-            }
+            return metadata.get(name);
         }
     }
 
@@ -314,8 +332,25 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
         }
 
         @Override
-        public boolean isConsumable(String name) {
-            return configurationsProvider.findByName(name).isCanBeConsumed();
+        public void visitConfigurations(Consumer<Candidate> visitor) {
+            for (ConfigurationInternal configuration : configurationsProvider.getAll()) {
+                visitor.accept(new Candidate() {
+                    @Override
+                    public String getName() {
+                        return configuration.getName();
+                    }
+
+                    @Override
+                    public boolean isConsumable() {
+                        return configuration.isCanBeConsumed();
+                    }
+
+                    @Override
+                    public boolean hasAttributes() {
+                        return !configuration.getAttributes().isEmpty();
+                    }
+                });
+            }
         }
 
         @Override
@@ -326,17 +361,14 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
         @Override
         public LocalConfigurationMetadata getConfiguration(
             String name,
-            DefaultLocalComponentMetadata parent,
-            @Nullable Transformer<LocalComponentArtifactMetadata, LocalComponentArtifactMetadata> artifactTransformer
+            DefaultLocalComponentMetadata parent
         ) {
             ConfigurationInternal configuration = configurationsProvider.findByName(name);
             if (configuration == null) {
                 return null;
             }
 
-            LocalConfigurationMetadata md = metadataBuilder.create(
-                configuration, configurationsProvider, parent, cache, model, calculatedValueContainerFactory);
-            return artifactTransformer != null ? md.copy(artifactTransformer) : md;
+            return metadataBuilder.create(configuration, configurationsProvider, parent, cache, model, calculatedValueContainerFactory);
         }
     }
 

@@ -164,7 +164,7 @@ public class DefaultLocalConfigurationMetadataBuilder implements LocalConfigurat
     /**
      * Collect all dependencies and excludes of all configurations in the provided {@code hierarchy}.
      */
-    public DependencyState getState(
+    private DependencyState getState(
         ConfigurationsProvider configurations,
         ImmutableSet<String> hierarchy,
         ComponentIdentifier componentId,
