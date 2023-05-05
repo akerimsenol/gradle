@@ -177,6 +177,9 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
         LocalConfigurationMetadata md = allConfigurations.get(name);
         if (md == null) {
             md = configurationFactory.getConfiguration(name, this);
+            if (md == null) {
+                return null;
+            }
             if (artifactTransformer != null) {
                 md = md.copy(artifactTransformer);
             }
