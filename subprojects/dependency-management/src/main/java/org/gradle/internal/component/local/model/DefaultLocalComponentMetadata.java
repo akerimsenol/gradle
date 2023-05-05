@@ -17,8 +17,8 @@
 package org.gradle.internal.component.local.model;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.gradle.api.Transformer;
-import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.internal.artifacts.configurations.ConfigurationInternal;
@@ -38,7 +38,6 @@ import org.gradle.internal.model.ModelContainer;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -327,16 +326,14 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
 
         @Override
         public Set<String> getConfigurationNames() {
-            Set<String> names = new LinkedHashSet<>();
-            for (Configuration configuration : configurationsProvider.getAll()) {
-                names.add(configuration.getName());
-            }
-            return names;
+            ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+            configurationsProvider.visitAll(configuration -> builder.add(configuration.getName()));
+            return builder.build();
         }
 
         @Override
         public void visitConfigurations(Consumer<Candidate> visitor) {
-            for (ConfigurationInternal configuration : configurationsProvider.getAll()) {
+            configurationsProvider.visitAll(configuration -> {
                 visitor.accept(new Candidate() {
                     @Override
                     public String getName() {
@@ -353,7 +350,7 @@ public final class DefaultLocalComponentMetadata implements LocalComponentMetada
                         return !configuration.getAttributes().isEmpty();
                     }
                 });
-            }
+            });
         }
 
         @Override
