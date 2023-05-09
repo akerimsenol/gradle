@@ -29,7 +29,6 @@ import org.gradle.api.internal.artifacts.configurations.DependencyMetaDataProvid
 import org.gradle.api.internal.artifacts.dsl.dependencies.ProjectFinder;
 import org.gradle.api.internal.collections.DefaultDomainObjectCollectionFactory;
 import org.gradle.api.internal.collections.DomainObjectCollectionFactory;
-import org.gradle.api.internal.component.ComponentRegistry;
 import org.gradle.api.internal.component.DefaultSoftwareComponentContainer;
 import org.gradle.api.internal.file.FileCollectionFactory;
 import org.gradle.api.internal.file.FileFactory;
@@ -56,6 +55,7 @@ import org.gradle.api.internal.project.ProjectState;
 import org.gradle.api.internal.project.ProjectStateRegistry;
 import org.gradle.api.internal.project.ant.DefaultAntLoggingAdapterFactory;
 import org.gradle.api.internal.project.taskfactory.ITaskFactory;
+import org.gradle.api.internal.project.taskfactory.TaskIdentityFactory;
 import org.gradle.api.internal.project.taskfactory.TaskInstantiator;
 import org.gradle.api.internal.provider.PropertyHost;
 import org.gradle.api.internal.resources.ApiTextResourceAdapter;
@@ -192,13 +192,14 @@ public class ProjectScopeServices extends DefaultServiceRegistry {
         return parentFactory.createChild(project, taskScheme.getInstantiationScheme().withServices(this));
     }
 
-    protected TaskInstantiator createTaskInstantiator(ITaskFactory taskFactory) {
-        return new TaskInstantiator(taskFactory, project);
+    protected TaskInstantiator createTaskInstantiator(TaskIdentityFactory taskIdentityFactory, ITaskFactory taskFactory) {
+        return new TaskInstantiator(taskIdentityFactory, taskFactory, project);
     }
 
     protected TaskContainerInternal createTaskContainerInternal(TaskStatistics taskStatistics, BuildOperationExecutor buildOperationExecutor, CrossProjectConfigurator crossProjectConfigurator, CollectionCallbackActionDecorator decorator) {
         return new DefaultTaskContainerFactory(
             get(Instantiator.class),
+            get(TaskIdentityFactory.class),
             get(ITaskFactory.class),
             project,
             taskStatistics,
@@ -208,9 +209,9 @@ public class ProjectScopeServices extends DefaultServiceRegistry {
         ).create();
     }
 
-    protected SoftwareComponentContainer createSoftwareComponentContainer(CollectionCallbackActionDecorator decorator) {
-        Instantiator instantiator = get(Instantiator.class);
-        return instantiator.newInstance(DefaultSoftwareComponentContainer.class, instantiator, decorator);
+    protected SoftwareComponentContainer createSoftwareComponentContainer(Instantiator instantiator, InstantiatorFactory instantiatorFactory, ServiceRegistry services, CollectionCallbackActionDecorator decorator) {
+        Instantiator elementInstantiator = instantiatorFactory.decorate(services);
+        return elementInstantiator.newInstance(DefaultSoftwareComponentContainer.class, instantiator, elementInstantiator, decorator);
     }
 
     protected ProjectFinder createProjectFinder() {
@@ -292,10 +293,6 @@ public class ProjectScopeServices extends DefaultServiceRegistry {
 
     protected DependencyMetaDataProvider createDependencyMetaDataProvider() {
         return new ProjectBackedModuleMetaDataProvider();
-    }
-
-    protected ComponentRegistry createComponentRegistry() {
-        return new ComponentRegistry();
     }
 
     protected TypeConverter createTypeConverter(PathToFileResolver fileResolver) {

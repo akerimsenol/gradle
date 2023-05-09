@@ -20,44 +20,53 @@ import org.gradle.api.internal.TaskInternal
 import org.gradle.api.internal.provider.ConfigurationTimeBarrier
 import org.gradle.api.internal.tasks.TaskExecutionAccessChecker
 import org.gradle.api.internal.tasks.execution.TaskExecutionAccessListener
-import org.gradle.internal.event.ListenerManager
+import org.gradle.configurationcache.serialization.Workarounds
+import org.gradle.internal.execution.WorkExecutionTracker
 
 
-abstract class AbstractTaskProjectAccessChecker : TaskExecutionAccessChecker {
+abstract class AbstractTaskProjectAccessChecker(
+    private val broadcaster: TaskExecutionAccessListener,
+    private val workExecutionTracker: WorkExecutionTracker
+) : TaskExecutionAccessChecker {
     override fun notifyProjectAccess(task: TaskInternal) {
         if (shouldReportExecutionTimeAccess(task)) {
-            accessBroadcaster(task).onProjectAccess("Task.project", task)
+            broadcaster.onProjectAccess("Task.project", task, currentTask())
         }
     }
 
     override fun notifyTaskDependenciesAccess(task: TaskInternal, invocationDescription: String) {
         if (shouldReportExecutionTimeAccess(task)) {
-            accessBroadcaster(task).onTaskDependenciesAccess(invocationDescription, task)
+            broadcaster.onTaskDependenciesAccess(invocationDescription, task, currentTask())
         }
     }
 
-    protected
-    abstract fun shouldReportExecutionTimeAccess(task: TaskInternal): Boolean
+    override fun notifyConventionAccess(task: TaskInternal, invocationDescription: String) {
+        if (shouldReportExecutionTimeAccess(task)) {
+            broadcaster.onConventionAccess(invocationDescription, task, currentTask())
+        }
+    }
 
     private
-    fun accessBroadcaster(fromTask: TaskInternal): TaskExecutionAccessListener =
-        fromTask.projectUnchecked.services
-            .get(ListenerManager::class.java)
-            .getBroadcaster(TaskExecutionAccessListener::class.java)
+    fun currentTask() = workExecutionTracker.currentTask.orElse(null)
+
+    protected
+    abstract fun shouldReportExecutionTimeAccess(task: TaskInternal): Boolean
 }
 
 
 object TaskExecutionAccessCheckers {
 
-    object TaskStateBased : AbstractTaskProjectAccessChecker() {
+    class TaskStateBased(broadcaster: TaskExecutionAccessListener, workExecutionTracker: WorkExecutionTracker) : AbstractTaskProjectAccessChecker(broadcaster, workExecutionTracker) {
         override fun shouldReportExecutionTimeAccess(task: TaskInternal): Boolean = task.state.executing
     }
 
     class ConfigurationTimeBarrierBased(
-        private val configurationTimeBarrier: ConfigurationTimeBarrier
-    ) : AbstractTaskProjectAccessChecker() {
+        private val configurationTimeBarrier: ConfigurationTimeBarrier,
+        broadcaster: TaskExecutionAccessListener,
+        workExecutionTracker: WorkExecutionTracker
+    ) : AbstractTaskProjectAccessChecker(broadcaster, workExecutionTracker) {
 
         override fun shouldReportExecutionTimeAccess(task: TaskInternal): Boolean =
-            !configurationTimeBarrier.isAtConfigurationTime
+            !configurationTimeBarrier.isAtConfigurationTime && !Workarounds.canAccessProjectAtExecutionTime(task)
     }
 }

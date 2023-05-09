@@ -17,13 +17,19 @@
 package org.gradle.kotlin.dsl.plugins.dsl
 
 import org.gradle.api.HasImplicitReceiver
+import org.gradle.api.SupportsKotlinAssignmentOverloading
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.internal.deprecation.DeprecationLogger
 import org.gradle.internal.logging.slf4j.ContextAwareTaskLogger
 import org.gradle.kotlin.dsl.*
+import org.gradle.kotlin.dsl.assignment.internal.KotlinDslAssignment
 import org.gradle.kotlin.dsl.provider.KotlinDslPluginSupport
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.assignment.plugin.gradle.AssignmentSubplugin
+import org.jetbrains.kotlin.assignment.plugin.gradle.AssignmentExtension
 import org.jetbrains.kotlin.samWithReceiver.gradle.SamWithReceiverExtension
 import org.jetbrains.kotlin.samWithReceiver.gradle.SamWithReceiverGradleSubplugin
 
@@ -41,24 +47,30 @@ abstract class KotlinDslCompilerPlugins : Plugin<Project> {
             samWithReceiver.annotation(HasImplicitReceiver::class.qualifiedName!!)
         }
 
-        afterEvaluate {
-            kotlinDslPluginOptions {
-                tasks.withType<KotlinCompile>().configureEach {
-                    it.kotlinOptions {
-                        DeprecationLogger.whileDisabled {
-                            if (this@kotlinDslPluginOptions.jvmTarget.isPresent) {
-                                jvmTarget = this@kotlinDslPluginOptions.jvmTarget.get()
-                            }
+        if (KotlinDslAssignment.isAssignmentOverloadEnabled()) {
+            plugins.apply(AssignmentSubplugin::class.java)
+            extensions.configure(AssignmentExtension::class.java) { assignment ->
+                assignment.annotation(SupportsKotlinAssignmentOverloading::class.qualifiedName!!)
+            }
+        }
+
+        kotlinDslPluginOptions {
+            tasks.withType<KotlinCompile>().configureEach { kotlinCompile ->
+                kotlinCompile.compilerOptions {
+                    DeprecationLogger.whileDisabled {
+                        @Suppress("DEPRECATION")
+                        if (this@kotlinDslPluginOptions.jvmTarget.isPresent) {
+                            jvmTarget.set(this@kotlinDslPluginOptions.jvmTarget.map { JvmTarget.fromTarget(it) })
                         }
-                        apiVersion = "1.8"
-                        languageVersion = "1.8"
-                        freeCompilerArgs += KotlinDslPluginSupport.kotlinCompilerArgs
                     }
-                    it.setWarningRewriter(ExperimentalCompilerWarningSilencer(listOf(
-                        "-XXLanguage:+DisableCompatibilityModeForNewInference",
-                        "-XXLanguage:-TypeEnhancementImprovementsInStrictMode",
-                    )))
+                    apiVersion.set(KotlinVersion.KOTLIN_1_8)
+                    languageVersion.set(KotlinVersion.KOTLIN_1_8)
+                    freeCompilerArgs.addAll(KotlinDslPluginSupport.kotlinCompilerArgs)
                 }
+                kotlinCompile.setWarningRewriter(ExperimentalCompilerWarningSilencer(listOf(
+                    "-XXLanguage:+DisableCompatibilityModeForNewInference",
+                    "-XXLanguage:-TypeEnhancementImprovementsInStrictMode",
+                )))
             }
         }
     }

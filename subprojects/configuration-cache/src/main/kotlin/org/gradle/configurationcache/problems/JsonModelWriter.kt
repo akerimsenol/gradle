@@ -154,7 +154,7 @@ class JsonModelWriter(val writer: Writer) {
             is PropertyTrace.BuildLogic -> {
                 property("kind", "BuildLogic")
                 comma()
-                property("location", trace.displayName.displayName)
+                property("location", trace.source.displayName)
             }
             is PropertyTrace.BuildLogicClass -> {
                 property("kind", "BuildLogicClass")
@@ -246,8 +246,12 @@ class JsonModelWriter(val writer: Writer) {
 
     private
     fun jsonString(value: String) {
-        buffer.addJsonEscapedString(value)
-        write(buffer.toStringAndRecycle())
+        if (value.isEmpty()) {
+            write("\"\"")
+        } else {
+            buffer.addJsonEscapedString(value)
+            write(buffer.toStringAndRecycle())
+        }
     }
 
     private

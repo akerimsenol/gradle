@@ -61,7 +61,6 @@ public interface ComponentResolveMetadata extends HasAttributes {
     /**
      * @return the sources information for this component.
      */
-    @Nullable
     ModuleSources getSources();
 
     /**
@@ -72,7 +71,6 @@ public interface ComponentResolveMetadata extends HasAttributes {
     /**
      * Returns the schema used by this component.
      */
-    @Nullable
     AttributesSchemaInternal getAttributesSchema();
 
     /**

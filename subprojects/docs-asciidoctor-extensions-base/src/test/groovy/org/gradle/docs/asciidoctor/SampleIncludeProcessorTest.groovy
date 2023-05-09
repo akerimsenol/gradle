@@ -107,7 +107,7 @@ class CustomEventLogger extends BuildAdapter implements TaskExecutionListener {
     public void afterExecute(Task task, TaskState state) {
         println()
     }
-    
+
     public void buildFinished(BuildResult result) {
         println 'build completed'
         if (result.failure != null) {
@@ -159,15 +159,15 @@ include::sample[dir="src/samples",files="build.gradle[tags=foo,bar]"]
 
         then:
         !content.contains('println "hello world"')
-        content.contains("doLast {\n    }")
+        content.contains("doLast {\n}")
     }
 
     /**
      * https://docs.asciidoctor.org/asciidoc/latest/directives/include-tagged-regions/#tag-filtering
      */
-    def 'allows sample included with double wildcard tag'() {
+    def "allows sample included with #description"() {
         given:
-        tmpDir.newFile("src/samples/build.gradle") << '''
+        tmpDir.newFile("src/samples/build.gradle") << """
 task hello {
     // tag::foo[]
     doLast {
@@ -177,13 +177,13 @@ task hello {
     }
     // end::bar[]
 }
-'''
+"""
 
         String asciidocContent = """
 = Doctitle
 :samples-dir: ${tmpDir.root.canonicalPath}
 
-include::sample[dir="src/samples",files="build.gradle[tag=**]"]
+include::sample[dir="src/samples",files="build.gradle[${tag}]"]
 """
 
         when:
@@ -197,6 +197,11 @@ include::sample[dir="src/samples",files="build.gradle[tag=**]"]
         |}'''.stripMargin()
 
         content.contains(expectedContent)
+
+        where:
+        description           | tag
+        "no tags"             | ""
+        "double wildcard tag" | "tags=**"
     }
 
     def "allows sample included with tags in XML"() {
@@ -222,5 +227,69 @@ include::sample[dir="src/samples",files="foo.xml[tag=bar]"]
         then:
         !content.contains('hello>')
         content.contains("&lt;child&gt;&lt;/child&gt;")
+    }
+
+    def "trims indentation in samples"() {
+        given:
+        tmpDir.newFile("src/samples/build.gradle") << """
+            |    // Comment
+            |    doLast {
+            |        println "hello world"
+            |    }
+        """.trim().stripMargin()
+
+        String asciidocContent = """
+            |= Doctitle
+            |:samples-dir: ${tmpDir.root.canonicalPath}
+            |
+            |include::sample[dir="src/samples",files="build.gradle[]"]
+        """.trim().stripMargin()
+
+        when:
+        String content = asciidoctor.convert(asciidocContent, [:])
+
+        def expectedContent = '''
+            |// Comment
+            |doLast {
+            |    println "hello world"
+            |}
+        '''.trim().stripMargin()
+
+        then:
+        content.contains(expectedContent)
+    }
+
+    def "trims indentation in samples with tags"() {
+        given:
+        tmpDir.newFile("src/samples/build.gradle") << """
+            |// No-indent comment outside of tag
+            |// tag::foo[]
+            |    // Comment
+            |    doLast {
+            |// end::foo[]
+            |        println "hello world"
+            |// tag::foo[]
+            |    }
+            |// end::foo[]
+        """.trim().stripMargin()
+
+        String asciidocContent = """
+            |= Doctitle
+            |:samples-dir: ${tmpDir.root.canonicalPath}
+            |
+            |include::sample[dir="src/samples",files="build.gradle[tags=foo]"]
+        """.trim().stripMargin()
+
+        when:
+        String content = asciidoctor.convert(asciidocContent, [:])
+
+        def expectedContent = """
+            |// Comment
+            |doLast {
+            |}
+        """.trim().stripMargin()
+
+        then:
+        content.contains(expectedContent)
     }
 }

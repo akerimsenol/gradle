@@ -37,7 +37,6 @@ import org.gradle.internal.build.BuildStateRegistry
 import org.gradle.internal.build.RootBuildState
 import org.gradle.internal.file.PathToFileResolver
 import org.gradle.internal.reflect.Instantiator
-import org.gradle.internal.resource.StringTextResource
 import org.gradle.internal.resource.TextFileResourceLoader
 import org.gradle.internal.service.ServiceRegistry
 import org.gradle.internal.service.scopes.ServiceRegistryFactory
@@ -166,8 +165,8 @@ class ConfigurationCacheHost internal constructor(
         override fun getProject(path: String): ProjectInternal =
             state.projects.getProject(Path.path(path)).mutableModel
 
-        override fun addIncludedBuild(buildDefinition: BuildDefinition, settingsFile: File?): ConfigurationCacheBuild {
-            return DefaultConfigurationCacheBuild(buildStateRegistry.addIncludedBuild(buildDefinition), fileResolver, buildStateRegistry, settingsFile)
+        override fun addIncludedBuild(buildDefinition: BuildDefinition, settingsFile: File?, buildPath: Path): ConfigurationCacheBuild {
+            return DefaultConfigurationCacheBuild(buildStateRegistry.addIncludedBuild(buildDefinition, buildPath), fileResolver, buildStateRegistry, settingsFile)
         }
 
         override fun getBuildSrcOf(ownerId: BuildIdentifier): ConfigurationCacheBuild {
@@ -178,11 +177,7 @@ class ConfigurationCacheHost internal constructor(
         fun createSettings(): SettingsState {
             val baseClassLoaderScope = gradle.classLoaderScope
             val classLoaderScope = baseClassLoaderScope.createChild("settings", null)
-            val settingsSource = if (settingsFile == null) {
-                TextResourceScriptSource(StringTextResource("settings", ""))
-            } else {
-                TextResourceScriptSource(service<TextFileResourceLoader>().loadFile("settings file", settingsFile))
-            }
+            val settingsSource = TextResourceScriptSource(service<TextFileResourceLoader>().loadFile("settings file", settingsFile))
             lateinit var services: SettingsScopeServices
             val serviceRegistryFactory = object : ServiceRegistryFactory {
                 override fun createFor(domainObject: Any): ServiceRegistry {

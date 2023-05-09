@@ -304,7 +304,9 @@ public interface Project extends Comparable<Project>, ExtensionAware, PluginAwar
 
     /**
      * <p>Returns the name of this project. The project's name is not necessarily unique within a project hierarchy. You
-     * should use the {@link #getPath()} method for a unique identifier for the project.</p>
+     * should use the {@link #getPath()} method for a unique identifier for the project.
+     * If the root project is unnamed and is located on a file system root it will have a randomly-generated name
+     * </p>
      *
      * @return The name of this project. Never return null.
      */
@@ -1761,6 +1763,16 @@ public interface Project extends Comparable<Project>, ExtensionAware, PluginAwar
      * @return The components for this project.
      */
     SoftwareComponentContainer getComponents();
+
+    /**
+     * Configures software components.
+     *
+     * @param configuration Action to configure the software components.
+     *
+     * @since 8.1
+     */
+    @Incubating
+    void components(Action<? super SoftwareComponentContainer> configuration);
 
     /**
      * Provides access to configuring input normalization.

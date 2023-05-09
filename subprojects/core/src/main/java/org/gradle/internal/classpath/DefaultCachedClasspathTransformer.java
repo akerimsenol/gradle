@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableList;
 import org.gradle.cache.FileLockManager;
 import org.gradle.cache.GlobalCacheLocations;
 import org.gradle.cache.PersistentCache;
-import org.gradle.cache.scopes.GlobalScopedCache;
+import org.gradle.cache.scopes.GlobalScopedCacheBuilderFactory;
 import org.gradle.internal.Either;
-import org.gradle.internal.agents.AgentControl;
+import org.gradle.internal.agents.AgentStatus;
 import org.gradle.internal.concurrent.CompositeStoppable;
 import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.concurrent.ManagedExecutor;
@@ -59,10 +59,11 @@ public class DefaultCachedClasspathTransformer implements CachedClasspathTransfo
     private final FileSystemAccess fileSystemAccess;
     private final GlobalCacheLocations globalCacheLocations;
     private final FileLockManager fileLockManager;
+    private final AgentStatus agentStatus;
     private final ManagedExecutor executor;
 
     public DefaultCachedClasspathTransformer(
-        GlobalScopedCache globalScopedCache,
+        GlobalScopedCacheBuilderFactory cacheBuilderFactory,
         ClasspathTransformerCacheFactory classpathTransformerCacheFactory,
         FileAccessTimeJournal fileAccessTimeJournal,
         ClasspathWalker classpathWalker,
@@ -70,14 +71,16 @@ public class DefaultCachedClasspathTransformer implements CachedClasspathTransfo
         FileSystemAccess fileSystemAccess,
         ExecutorFactory executorFactory,
         GlobalCacheLocations globalCacheLocations,
-        FileLockManager fileLockManager
+        FileLockManager fileLockManager,
+        AgentStatus agentStatus
     ) {
         this.classpathWalker = classpathWalker;
         this.classpathBuilder = classpathBuilder;
         this.fileSystemAccess = fileSystemAccess;
         this.globalCacheLocations = globalCacheLocations;
         this.fileLockManager = fileLockManager;
-        this.cache = classpathTransformerCacheFactory.createCache(globalScopedCache, fileAccessTimeJournal);
+        this.agentStatus = agentStatus;
+        this.cache = classpathTransformerCacheFactory.createCache(cacheBuilderFactory, fileAccessTimeJournal);
         this.fileAccessTracker = classpathTransformerCacheFactory.createFileAccessTracker(cache, fileAccessTimeJournal);
         this.executor = executorFactory.create("jar transforms", Runtime.getRuntime().availableProcessors());
     }
@@ -106,7 +109,7 @@ public class DefaultCachedClasspathTransformer implements CachedClasspathTransfo
             case None:
                 return copyingPipeline();
             case BuildLogic:
-                if (!AgentControl.isInstrumentationAgentApplied()) {
+                if (!agentStatus.isAgentInstrumentationEnabled()) {
                     return instrumentingPipeline(InstrumentingClasspathFileTransformer.instrumentForLoadingWithClassLoader());
                 }
                 return agentInstrumentingPipeline(copyingPipeline(), instrumentingPipeline(InstrumentingClasspathFileTransformer.instrumentForLoadingWithAgent()));
@@ -131,7 +134,7 @@ public class DefaultCachedClasspathTransformer implements CachedClasspathTransfo
             List<File> transformedJars = transformedClassPath.getAsFiles();
             int size = copiedOriginalJars.size();
             assert size == transformedJars.size();
-            TransformedClassPath.Builder result = TransformedClassPath.Builder.withExpectedSize(size);
+            TransformedClassPath.Builder result = TransformedClassPath.builderWithExactSize(size);
             for (int i = 0; i < size; ++i) {
                 result.add(copiedOriginalJars.get(i), transformedJars.get(i));
             }

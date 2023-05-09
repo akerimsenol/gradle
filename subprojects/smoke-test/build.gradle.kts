@@ -20,6 +20,8 @@ val smokeTestImplementation: Configuration by configurations
 val smokeTestDistributionRuntimeOnly: Configuration by configurations
 
 dependencies {
+    testFixturesImplementation(project(":internal-integ-testing"))
+
     smokeTestImplementation(project(":base-services"))
     smokeTestImplementation(project(":core-api"))
     smokeTestImplementation(project(":test-kit"))
@@ -55,14 +57,14 @@ tasks {
     val santaGitUri = "https://github.com/gradle/santa-tracker-android.git"
 
     val santaTracker by registering(RemoteProject::class) {
-        remoteUri.set(santaGitUri)
+        remoteUri = santaGitUri
         // Pinned from branch main
-        ref.set("37a7d12c40f36657a0cb0181979c401c752bd328")
+        ref = "70b2fec935b82d8783579290512690fe2eca8884"
     }
 
     val gradleBuildCurrent by registering(RemoteProject::class) {
-        remoteUri.set(rootDir.absolutePath)
-        ref.set(buildCommitId)
+        remoteUri = rootDir.absolutePath
+        ref = buildCommitId
     }
 
     val remoteProjects = arrayOf(santaTracker, gradleBuildCurrent)

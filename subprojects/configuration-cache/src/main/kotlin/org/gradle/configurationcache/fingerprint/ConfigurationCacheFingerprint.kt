@@ -22,6 +22,7 @@ import org.gradle.api.provider.ValueSourceParameters
 import org.gradle.internal.file.FileType
 import org.gradle.internal.hash.HashCode
 import java.io.File
+import java.net.URI
 
 
 internal
@@ -75,6 +76,10 @@ sealed class ConfigurationCacheFingerprint {
     data class UndeclaredEnvironmentVariable(
         val key: String,
         val value: Any?
+    ) : ConfigurationCacheFingerprint()
+
+    data class RemoteScript(
+        val uri: URI
     ) : ConfigurationCacheFingerprint()
 
     abstract class ChangingDependencyResolutionValue(

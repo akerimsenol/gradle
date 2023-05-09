@@ -38,7 +38,7 @@ import java.util.List;
 /**
  * Transformed artifact set that performs the transformation itself when visited.
  */
-public abstract class AbstractTransformedArtifactSet implements ResolvedArtifactSet, FileCollectionInternal.Source {
+public abstract class AbstractTransformedArtifactSet implements TransformedArtifactSet, FileCollectionInternal.Source {
     private final CalculatedValueContainer<ImmutableList<ResolvedArtifactSet.Artifacts>, CalculateArtifacts> result;
 
     public AbstractTransformedArtifactSet(
@@ -46,13 +46,13 @@ public abstract class AbstractTransformedArtifactSet implements ResolvedArtifact
         ResolvedArtifactSet delegate,
         ImmutableAttributes targetVariantAttributes,
         List<? extends Capability> capabilities,
-        Transformation transformation,
+        TransformationChain transformationChain,
         ExtraExecutionGraphDependenciesResolverFactory dependenciesResolverFactory,
         CalculatedValueContainerFactory calculatedValueContainerFactory
     ) {
-        TransformUpstreamDependenciesResolver dependenciesResolver = dependenciesResolverFactory.create(componentIdentifier, transformation);
+        TransformUpstreamDependenciesResolver dependenciesResolver = dependenciesResolverFactory.create(componentIdentifier, transformationChain);
         ImmutableList.Builder<BoundTransformationStep> builder = ImmutableList.builder();
-        transformation.visitTransformationSteps(transformationStep -> builder.add(new BoundTransformationStep(transformationStep, dependenciesResolver.dependenciesFor(transformationStep))));
+        transformationChain.visitTransformationSteps(transformationStep -> builder.add(new BoundTransformationStep(transformationStep, dependenciesResolver.dependenciesFor(transformationStep))));
         ImmutableList<BoundTransformationStep> steps = builder.build();
         this.result = calculatedValueContainerFactory.create(Describables.of(componentIdentifier), new CalculateArtifacts(componentIdentifier, delegate, targetVariantAttributes, capabilities, steps));
     }

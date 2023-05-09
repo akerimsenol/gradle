@@ -17,11 +17,9 @@
 package org.gradle.smoketests
 
 import org.gradle.testkit.runner.TaskOutcome
-import spock.lang.Ignore
 
 class GradleBuildSanityCheckConfigurationCacheSmokeTest extends AbstractGradleBuildConfigurationCacheSmokeTest {
 
-    @Ignore("Temporarily ignored to get the Sign task in")
     def "can run Gradle sanityCheck with configuration cache enabled"() {
         given:
         // This is an approximation, running the whole build lifecycle 'sanityCheck' is too expensive
@@ -67,8 +65,7 @@ class GradleBuildSanityCheckConfigurationCacheSmokeTest extends AbstractGradleBu
         result.task(":configuration-cache:codeQuality").outcome == TaskOutcome.UP_TO_DATE
         result.task(":docs:checkstyleApi").outcome == TaskOutcome.FROM_CACHE
         result.task(":internal-build-reports:allIncubationReportsZip").outcome == TaskOutcome.SUCCESS
-        // For now, this task is not CC compatible:
-        result.task(":architecture-test:checkBinaryCompatibility").outcome == TaskOutcome.SUCCESS
+        result.task(":architecture-test:checkBinaryCompatibility").outcome == TaskOutcome.FROM_CACHE
         result.task(":docs:javadocAll").outcome == TaskOutcome.FROM_CACHE
         result.task(":architecture-test:test").outcome == TaskOutcome.FROM_CACHE
         result.task(":tooling-api:toolingApiShadedJar").outcome == TaskOutcome.SUCCESS
