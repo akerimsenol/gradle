@@ -52,11 +52,13 @@ public class JvmOptions {
     public static final String JMX_REMOTE_KEY = "com.sun.management.jmxremote";
     public static final String JAVA_IO_TMPDIR_KEY = "java.io.tmpdir";
     public static final String JDK_ENABLE_ADS_KEY = "jdk.io.File.enableADS";
+    public static final String JDK_ENABLE_SELF_ATTACH_KEY = "jdk.attach.allowAttachSelf";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JvmOptions.class);
 
     public static final Set<String> IMMUTABLE_SYSTEM_PROPERTIES = ImmutableSet.of(
-        FILE_ENCODING_KEY, USER_LANGUAGE_KEY, USER_COUNTRY_KEY, USER_VARIANT_KEY, JMX_REMOTE_KEY, JAVA_IO_TMPDIR_KEY, JDK_ENABLE_ADS_KEY
+        FILE_ENCODING_KEY, USER_LANGUAGE_KEY, USER_COUNTRY_KEY, USER_VARIANT_KEY, 
+        JMX_REMOTE_KEY, JAVA_IO_TMPDIR_KEY, JDK_ENABLE_ADS_KEY, JDK_ENABLE_SELF_ATTACH_KEY
     );
 
     // Store this because Locale.default is mutable and we want the unchanged default
