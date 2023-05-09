@@ -62,7 +62,8 @@ public class H2BuildCacheServiceFactory implements BuildCacheServiceFactory<Dire
         describer.type(H2_BUILD_CACHE_TYPE).
             config("location", target.getAbsolutePath());
 
-        return new H2BuildCacheService(target.toPath(), parallelismConfiguration.getMaxWorkerCount());
+        H2BuildCacheService h2Service = new H2BuildCacheService(target.toPath(), parallelismConfiguration.getMaxWorkerCount());
+        return new LockOnDemandCrossProcessBuildCacheService(h2Service);
     }
 
     private static void checkDirectory(File directory) {
