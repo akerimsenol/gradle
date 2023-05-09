@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 the original author or authors.
+ * Copyright 2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,29 +14,28 @@
  * limitations under the License.
  */
 
-package org.gradle.testing.junit
+package org.gradle.testing
 
 import org.gradle.integtests.fixtures.DefaultTestExecutionResult
-import org.gradle.integtests.fixtures.TargetCoverage
 import org.gradle.integtests.fixtures.TestExecutionResult
-import org.gradle.integtests.fixtures.executer.ExecutionResult
+import org.gradle.integtests.fixtures.TestOutcome
 
-import static org.gradle.testing.fixture.JUnitCoverage.getJUNIT_4_LATEST
-import static org.gradle.testing.fixture.JUnitCoverage.getVINTAGE
-
-@TargetCoverage({ JUNIT_4_LATEST + VINTAGE })
-class JUnitDryRunIntegrationTest extends JUnitFilteringIntegrationTest {
+abstract class AbstractDryRunFilteringIntegrationTest extends AbstractTestFilteringIntegrationTest {
 
     @Override
-    protected ExecutionResult succeeds(String... tasks) {
-        result = executer.withTasks(*tasks, "--test-dry-run").run()
-        return result
+    TestOutcome getTestOutcome() {
+        return TestOutcome.SKIPPED
     }
 
-    def "dry run test is skipping execution and considering as passed in report"() {
+    @Override
+    List<String> getTestTaskArguments() {
+        return ['--test-dry-run']
+    }
+
+    def "dry run test is skipping execution and considering as skipped in report"() {
         given:
         file("src/test/java/SomeTest.java") << """
-        import org.junit.*;
+        ${testFrameworkImports}
 
         public class SomeTest {
             @Test public void failingTest() {
@@ -48,6 +47,6 @@ class JUnitDryRunIntegrationTest extends JUnitFilteringIntegrationTest {
 
         expect:
         run("test")
-        executionResult.testClass("SomeTest").assertTestPassed("failingTest")
+        executionResult.testClass("SomeTest").assertTestSkipped("failingTest")
     }
 }
